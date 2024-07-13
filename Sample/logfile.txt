@@ -1,0 +1,14 @@
+[i]Found Dll : USER32.dll
+############
+
+[i]Found Dll : VCRUNTIME140D.dll
+############
+
+[i]Found Dll : ucrtbased.dll
+############
+
+[i]Found Dll : KERNEL32.dll
+############
+
+[i]imported function : MessageBoxA
+[i]Hijacked function : MessageBoxA
