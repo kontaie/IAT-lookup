@@ -5,6 +5,8 @@
 #include <winternl.h>
 #include <vector>
 
+using namespace std;
+
 using FTMessageBox = int (WINAPI*)(HWND hWnd, LPCSTR lpText, LPCSTR lpCaption, UINT uType);
 
 FTMessageBox originalMsgBox = MessageBoxA;
@@ -14,9 +16,9 @@ int hookedMessageBox(HWND hWnd, LPCSTR lpText, LPCSTR lpCaption, UINT uType)
     return originalMsgBox(hWnd, "h00ked", lpCaption, uType);
 }
 
-void Log(const std::string& message) {
-    std::ofstream logFile("C:\\Users\\levdk\\OneDrive\\Desktop\\logfile.txt", std::ios_base::app);
-    logFile << message << std::endl;
+void Log(const string& message) {
+    ofstream logFile("C:\\Users\\levdk\\OneDrive\\Desktop\\logfile.txt", ios_base::app);
+    logFile << message << endl;
 }
 
 DWORD FunctionsEnum() {
@@ -31,20 +33,20 @@ DWORD FunctionsEnum() {
     }
 
 #ifdef _WIN64
-    IMAGE_OPTIONAL_HEADER64 OptionalHeader = ntHeaders->OptionalHeader;
+    auto& OptionalHeader = ntHeaders->OptionalHeader;
 #else
-    IMAGE_OPTIONAL_HEADER32 OptionalHeader = ntHeaders->OptionalHeader;
+    auto& OptionalHeader = ntHeaders->OptionalHeader;
 #endif
 
     IMAGE_DATA_DIRECTORY import_dir = OptionalHeader.DataDirectory[IMAGE_DIRECTORY_ENTRY_IMPORT];
     PIMAGE_IMPORT_DESCRIPTOR import_des = (PIMAGE_IMPORT_DESCRIPTOR)((uintptr_t)imageBase + import_dir.VirtualAddress);
     SIZE_T dllnum = import_dir.Size / sizeof(IMAGE_IMPORT_DESCRIPTOR);
 
-    std::vector<HMODULE> dlls;
+    vector<HMODULE> dlls;
 
     for (int i = 0; i < dllnum - 1; i++) {
         LPCSTR dllname = (LPCSTR)((uintptr_t)imageBase + import_des[i].Name);
-        Log("[i]Found Dll : " + std::string(dllname) + "\n############\n");
+        Log("[i]Found Dll : " + string(dllname) + "\n############\n");
         HMODULE dll = LoadLibraryA(dllname);
         dlls.push_back(dll);
     }
@@ -56,8 +58,18 @@ DWORD FunctionsEnum() {
             while (ogthunk->u1.AddressOfData != NULL)
             {
                 PIMAGE_IMPORT_BY_NAME functionName = (PIMAGE_IMPORT_BY_NAME)((uintptr_t)imageBase + ogthunk->u1.AddressOfData);
-                std::string(functionName->Name);
-                Log("[i]imported function : " + std::string(functionName->Name));
+                Log("[i]imported function : " + string(functionName->Name));
+                if (strcmp(string(functionName->Name).c_str(), "MessageBoxA") == 0) {
+                    MessageBoxA(NULL, "Hook", "Found Function", MB_OK);
+
+                    DWORD oldProtect = 0;
+                    VirtualProtect((LPVOID)(&thunk->u1.Function), sizeof(LPVOID), PAGE_READWRITE, &oldProtect);
+                    thunk->u1.Function = (uintptr_t)hookedMessageBox;
+                    VirtualProtect((LPVOID)(&thunk->u1.Function), sizeof(LPVOID), oldProtect, &oldProtect);
+
+                    Log("[i]Hijacked function : " + string(functionName->Name));
+                    MessageBoxA(NULL, "Hook", "Function Hooked", MB_OK);
+                }
                 ogthunk++;
                 thunk++;
             }
